@@ -1,0 +1,1350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>GeoMather</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--bg2:#161b22;--bg3:#21262d;--bd:#30363d;--tx:#e6edf3;--mu:#8b949e;--bl:#58a6ff;--gr:#3fb950;--re:#f78166;--go:#f0c93a}
+html,body{width:100%;height:100%;overflow:hidden;font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--tx)}
+.screen{display:none;position:absolute;inset:0}
+.screen.active{display:flex}
+.col-center{flex-direction:column;align-items:center;justify-content:center;gap:15px;background:var(--bg)}
+
+/* shared */
+.logo{font-size:2.5rem;font-weight:800;color:var(--bl);letter-spacing:-2px}.logo span{color:var(--re)}
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:12px;padding:22px;width:100%;max-width:440px;display:flex;flex-direction:column;gap:10px}
+.tabs{display:flex;border-radius:8px;overflow:hidden;border:1px solid var(--bd)}
+.tab{flex:1;padding:8px;text-align:center;cursor:pointer;background:transparent;color:var(--mu);border:none;font-size:.82rem;font-family:inherit;transition:all .2s}
+.tab.active{background:#1f6feb;color:#fff}
+input,select{background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:9px 12px;color:var(--tx);font-size:.91rem;width:100%;outline:none;font-family:inherit;transition:border .2s}
+input:focus,select:focus{border-color:var(--bl)}
+select option{background:var(--bg)}
+.btn{padding:9px 16px;border-radius:8px;border:none;cursor:pointer;font-size:.86rem;font-weight:600;font-family:inherit;transition:all .15s;white-space:nowrap}
+.bp{background:#1f6feb;color:#fff}.bp:hover{background:#388bfd}
+.bs{background:var(--bg3);color:var(--tx);border:1px solid var(--bd)}.bs:hover{background:var(--bd)}
+.bgr{background:#238636;color:#fff}.bgr:hover{background:#2ea043}
+.err{color:var(--re);font-size:.79rem;min-height:.9rem}
+.info-box{background:rgba(240,201,58,.08);border:1px solid rgba(240,201,58,.2);border-radius:8px;padding:9px 12px;font-size:.79rem;color:var(--go);line-height:1.5}
+.form-label{font-size:.72rem;color:var(--mu);margin-bottom:3px}
+
+/* lobby */
+.rcode{font-size:2.8rem;font-weight:800;letter-spacing:.45rem;color:var(--bl);font-family:monospace;background:var(--bg2);padding:13px 22px;border-radius:12px;border:2px dashed var(--bd);cursor:pointer}
+.rcode:hover{border-color:var(--bl)}
+.plist{display:flex;flex-direction:column;gap:5px;min-width:300px;max-height:130px;overflow-y:auto}
+.pi{background:var(--bg2);border:1px solid var(--bd);border-radius:8px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:.84rem}
+.pdot{width:7px;height:7px;border-radius:50%;background:var(--gr);flex-shrink:0}.pdot.host{background:var(--re)}
+.lobby-info{background:var(--bg3);border-radius:8px;padding:9px 14px;font-size:.8rem;color:var(--mu);display:flex;gap:16px;flex-wrap:wrap}
+.lobby-info span{color:var(--tx);font-weight:600}
+
+/* game */
+#sg{background:#000}
+#sv-el{position:absolute;inset:0;width:100%;height:100%}
+#sv-loading{position:absolute;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;transition:opacity .7s}
+#sv-loading.gone{opacity:0;pointer-events:none}
+.spinner{width:34px;height:34px;border:3px solid var(--bd);border-top-color:var(--bl);border-radius:50%;animation:spin .75s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+#sv-topbar{position:absolute;top:0;left:0;right:0;height:46px;z-index:15;background:rgba(13,17,23,.88);backdrop-filter:blur(6px);border-bottom:1px solid rgba(255,255,255,.06);display:flex;align-items:center;padding:0 14px;gap:10px}
+.rtag{font-weight:700;font-size:.88rem}
+.roomtag{font-size:.72rem;color:var(--mu);font-family:monospace}
+.tb-sp{flex:1}
+.pill{border-radius:20px;padding:4px 12px;font-size:.73rem;font-weight:600}
+.pill-gold{background:rgba(240,201,58,.15);color:var(--go)}
+.moves-row{display:flex;align-items:center;gap:6px}
+.moves-label{font-size:.68rem;color:var(--mu);white-space:nowrap}
+.mdots{display:flex;gap:3px}
+.mdot{width:9px;height:9px;border-radius:50%;transition:background .35s}
+.mdot.earned{background:var(--gr)}.mdot.empty{background:rgba(255,255,255,.15)}
+#timer-pill{border-radius:20px;padding:4px 14px;font-size:.86rem;font-weight:800;background:rgba(88,166,255,.18);color:var(--bl);font-family:monospace;min-width:58px;text-align:center;transition:background .3s,color .3s}
+#timer-pill.warn{background:rgba(247,129,102,.18);color:var(--re)}
+#timer-pill.urgent{background:rgba(247,129,102,.4);color:#fff;animation:tpulse .5s ease infinite}
+#timer-pill.hidden{display:none}
+@keyframes tpulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+#sv-fb{position:absolute;bottom:90px;left:50%;transform:translateX(-50%);z-index:20;background:rgba(13,17,23,.92);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:8px 20px;font-size:.86rem;font-weight:600;pointer-events:none;opacity:0;transition:opacity .3s;white-space:nowrap}
+#sv-fb.show{opacity:1}
+#sv-fb.ok{color:var(--gr);border-color:rgba(63,185,80,.3)}
+#sv-fb.no{color:var(--re);border-color:rgba(247,129,102,.3)}
+#sv-fb.info{color:var(--go);border-color:rgba(240,201,58,.3)}
+
+#guess-fab{position:absolute;bottom:24px;right:22px;z-index:20;display:flex;flex-direction:column;align-items:center;gap:3px;padding:13px 26px;background:#1f6feb;color:#fff;border:none;border-radius:12px;cursor:pointer;font-size:1rem;font-weight:800;font-family:inherit;box-shadow:0 4px 18px rgba(31,111,235,.5);transition:all .18s}
+#guess-fab:hover{background:#388bfd;transform:translateY(-2px)}
+#fab-sub{font-size:.71rem;font-weight:500;opacity:.88}
+
+/* players waiting indicator */
+#waiting-badge{position:absolute;bottom:24px;left:50%;transform:translateX(-50%);z-index:15;background:rgba(13,17,23,.92);border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:9px 16px;font-size:.79rem;color:var(--mu);display:none;flex-direction:column;align-items:center;gap:8px;text-align:center}
+#waiting-badge .wb-text{white-space:nowrap}
+#waiting-badge .wb-players{display:flex;flex-direction:column;gap:3px;width:100%}
+#waiting-badge .wp{font-size:.72rem;display:flex;align-items:center;gap:5px}
+#waiting-badge .wp.done{color:var(--gr)}.wp.wait{color:var(--mu)}
+#force-btn{padding:7px 18px;background:#1f6feb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.79rem;font-weight:700;font-family:inherit}
+#force-btn:hover{background:#388bfd}
+
+/* math dialog */
+#math-dialog{position:fixed;inset:0;z-index:100;background:rgba(0,0,0,.78);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;padding:16px}
+#math-dialog.active{display:flex}
+.d-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:22px;width:100%;max-width:400px;display:flex;flex-direction:column;gap:13px;animation:popIn .22s ease}
+@keyframes popIn{from{transform:scale(.88);opacity:0}to{transform:scale(1);opacity:1}}
+.d-hdr{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.d-action{font-size:.84rem;font-weight:700;color:var(--tx)}
+.d-tag{font-size:.66rem;color:var(--mu);margin-top:2px;line-height:1.4}
+.d-pts{font-size:.76rem;font-weight:700;color:var(--bl);white-space:nowrap}
+.d-q{font-size:1.05rem;line-height:1.5;min-height:36px}
+.mv{font-size:1.18rem;font-weight:800;color:var(--bl);font-family:monospace}
+.ans-row{display:flex;gap:8px;align-items:stretch}
+#ans-input{flex:1;font-size:1.1rem;font-family:monospace;font-weight:700;background:var(--bg3);border:2px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);outline:none;transition:border-color .2s}
+#ans-input:focus{border-color:var(--bl)}
+#ans-input.ok{border-color:var(--gr);background:rgba(63,185,80,.08)}
+#ans-input.no{border-color:var(--re);background:rgba(247,129,102,.08)}
+#ans-submit{padding:10px 18px;background:#1f6feb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:700;font-family:inherit;white-space:nowrap;transition:all .15s}
+#ans-submit:hover{background:#388bfd}
+#ans-submit:disabled{opacity:.4;cursor:default}
+.d-hint{font-size:.71rem;color:var(--mu);line-height:1.4}
+.d-fb{text-align:center;font-size:.84rem;border-radius:6px;padding:7px;min-height:26px;font-weight:600}
+.d-fb.ok{background:rgba(63,185,80,.1);color:var(--gr)}
+.d-fb.no{background:rgba(247,129,102,.1);color:var(--re)}
+.d-progress{display:flex;align-items:center;gap:8px;padding-top:5px;border-top:1px solid var(--bd)}
+.dp-label{font-size:.67rem;color:var(--mu);white-space:nowrap}
+.dp-dots{display:flex;gap:4px}
+.dp-dot{width:10px;height:10px;border-radius:50%}
+.dp-dot.earned{background:var(--gr)}.dp-dot.empty{background:var(--bd)}
+
+/* guess map */
+#sg-guess{flex-direction:column}
+#gm-el{flex:1;width:100%;min-height:0}
+#guess-bar{flex-shrink:0;height:54px;background:rgba(13,17,23,.96);border-top:1px solid var(--bd);display:flex;align-items:center;gap:9px;padding:0 13px}
+.ginfo{flex:1;font-size:.79rem;color:var(--mu)}
+.gbonus{font-size:.77rem;color:var(--bl);font-weight:600}
+
+/* results */
+#sr{flex-direction:row}
+#rm-el{flex:1;position:relative;height:100%}
+#rm-map{position:absolute;inset:0}
+.rsb{width:305px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--bd);display:flex;flex-direction:column;overflow:hidden;height:100%}
+.rsb-top{padding:12px;border-bottom:1px solid var(--bd);flex-shrink:0}
+.rtabs{display:flex;gap:5px;margin-top:7px}
+.rtab{flex:1;padding:6px;border-radius:7px;border:1px solid var(--bd);background:transparent;color:var(--mu);cursor:pointer;font-size:.76rem;font-weight:600;text-align:center;font-family:inherit;transition:all .2s}
+.rtab.active{background:rgba(31,111,235,.12);border-color:#1f6feb;color:var(--bl)}
+.rsb-scroll{flex:1;overflow-y:auto;padding:8px}
+.rsb-foot{padding:10px;border-top:1px solid var(--bd);flex-shrink:0}
+.pbar-w{width:100%;background:var(--bg);border-radius:3px;height:4px;overflow:hidden;margin-top:3px}
+.pbar{height:4px;border-radius:3px;transition:width .7s ease}
+.lb{display:flex;flex-direction:column;gap:4px}
+.lbr{display:flex;align-items:center;gap:8px;background:var(--bg3);border-radius:8px;padding:8px 10px;border:1px solid transparent}
+.lbr.me{border-color:var(--bl)!important}.lbr.g1{background:rgba(240,201,58,.07);border-color:rgba(240,201,58,.4)}.lbr.g2{background:rgba(155,155,155,.05);border-color:rgba(155,155,155,.3)}.lbr.g3{background:rgba(205,127,50,.06);border-color:rgba(205,127,50,.3)}
+.lbpos{font-size:.9rem;width:20px;text-align:center;flex-shrink:0}
+.lbname{flex:1;font-size:.81rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lbsc{font-size:.87rem;font-weight:800;color:var(--bl)}
+.dlt{font-size:.67rem;font-weight:600}.dlt.up{color:var(--gr)}.dlt.dn{color:var(--re)}.dlt.eq{color:var(--mu)}
+.rr{display:flex;flex-direction:column;gap:4px}
+.rri{background:var(--bg3);border-radius:8px;padding:8px 10px;display:flex;align-items:center;gap:8px;border:1px solid transparent}.rri.me{border-color:var(--bl)}
+.rri-name{font-size:.81rem;font-weight:600}
+.rri-sub{font-size:.68rem;color:var(--mu);margin-top:2px}
+.rri-sc{font-size:.87rem;font-weight:800;color:var(--bl);white-space:nowrap}
+
+/* final */
+#sf{flex-direction:column;align-items:center;justify-content:center;gap:16px;background:var(--bg)}
+.flb{background:var(--bg2);border-radius:12px;width:100%;max-width:440px;border:1px solid var(--bd);overflow:hidden;max-height:58vh;overflow-y:auto}
+.flb-hdr{padding:10px 14px;border-bottom:1px solid var(--bd);font-weight:700;font-size:.78rem;color:var(--mu);text-transform:uppercase;display:flex;justify-content:space-between}
+.fri{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--bd)}.fri:last-child{border-bottom:none}
+.fripos{font-size:1.2rem;width:28px;text-align:center;flex-shrink:0}
+.friname{flex:1;font-weight:600;font-size:.88rem}
+.frisc{font-size:1rem;font-weight:800;color:var(--bl)}
+.frirds{font-size:.67rem;color:var(--mu);margin-top:1px}
+
+@keyframes fu{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+.toast{position:fixed;top:12px;left:50%;transform:translateX(-50%);background:#238636;color:#fff;padding:6px 14px;border-radius:8px;font-size:.78rem;z-index:300;animation:fu .3s;white-space:nowrap}
+
+/* Pre-round quiz screen */
+#sq{flex-direction:column;align-items:center;justify-content:center;gap:0;background:var(--bg)}
+.sq-header{width:100%;max-width:480px;padding:18px 22px 14px;display:flex;flex-direction:column;gap:6px}
+.sq-title{font-size:1.05rem;font-weight:700}
+.sq-sub{font-size:.8rem;color:var(--mu)}
+.sq-progress{display:flex;align-items:center;gap:8px;margin-top:4px}
+.sq-label{font-size:.7rem;color:var(--mu);white-space:nowrap}
+.sq-dots{display:flex;gap:4px}
+.sq-dot{width:11px;height:11px;border-radius:50%;transition:background .3s}
+.sq-dot.correct{background:var(--gr)}.sq-dot.wrong{background:var(--re)}.sq-dot.current{background:var(--bl)}.sq-dot.empty{background:var(--bd)}
+.sq-card{background:var(--bg2);border:1px solid var(--bd);border-radius:14px;padding:22px;width:100%;max-width:480px;margin:0 22px;display:flex;flex-direction:column;gap:12px}
+.sq-q{font-size:1.08rem;line-height:1.5;min-height:40px}
+.sq-ans-row{display:flex;gap:8px}
+.sq-input{flex:1;font-size:1.1rem;font-family:monospace;font-weight:700;background:var(--bg3);border:2px solid var(--bd);border-radius:8px;padding:10px 14px;color:var(--tx);outline:none;transition:border-color .2s}
+.sq-input:focus{border-color:var(--bl)}
+.sq-input.ok{border-color:var(--gr);background:rgba(63,185,80,.08)}
+.sq-input.no{border-color:var(--re);background:rgba(247,129,102,.08)}
+.sq-submit{padding:10px 18px;background:#1f6feb;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:.9rem;font-weight:700;font-family:inherit;transition:all .15s}
+.sq-submit:hover{background:#388bfd}
+.sq-submit:disabled{opacity:.4;cursor:default}
+.sq-hint{font-size:.71rem;color:var(--mu)}
+.sq-fb{text-align:center;font-size:.86rem;border-radius:6px;padding:7px;min-height:28px;font-weight:600}
+.sq-fb.ok{background:rgba(63,185,80,.1);color:var(--gr)}.sq-fb.no{background:rgba(247,129,102,.1);color:var(--re)}
+.sq-tally{font-size:.78rem;color:var(--mu);text-align:center;padding:4px 0}
+
+/* rejoin player list */
+.rejoin-player{display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:1px solid var(--bd);border-radius:8px;padding:9px 13px;font-size:.84rem}
+.rejoin-player .rp-name{font-weight:600}
+.rejoin-player .rp-status{font-size:.72rem;color:var(--mu)}
+.rejoin-player.me{border-color:var(--gr);background:rgba(63,185,80,.07)}
+.pwd-row{position:relative}
+.pwd-row input{padding-right:36px}
+.pwd-toggle{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--mu);font-size:.8rem;padding:2px 4px}
+</style>
+</head>
+<body>
+
+<!-- START -->
+<div id="sw" class="screen col-center">
+  <div class="logo">Geo<span>Mather</span></div>
+  <div style="color:var(--mu);font-size:.87rem;margin-top:-10px">Walk around Street View by answering maths — then guess where you are</div>
+  <div class="card">
+    <div class="tabs">
+      <button class="tab active" id="t-single" onclick="switchTab('single')">Solo / Test</button>
+      <button class="tab" id="t-create" onclick="switchTab('create')">Create Room</button>
+      <button class="tab" id="t-join"   onclick="switchTab('join')">Join Room</button>
+      <button class="tab" id="t-rejoin" onclick="switchTab('rejoin')" style="color:var(--go)">↩ Rejoin</button>
+    </div>
+
+    <!-- SOLO -->
+    <div id="pane-single">
+      <div class="info-box">⚡ <strong>Solo / teacher test mode</strong> — no room code needed.</div>
+    </div>
+
+    <!-- CREATE -->
+    <div id="pane-create" style="display:none;flex-direction:column;gap:8px">
+      <div style="display:flex;gap:8px">
+        <div style="flex:1">
+          <div class="form-label">Rounds</div>
+          <select id="inp-rounds"><option value="5">5</option><option value="10">10</option><option value="15">15</option><option value="20" selected>20</option></select>
+        </div>
+        <div style="flex:1">
+          <div class="form-label">Timer per round</div>
+          <select id="inp-timer"><option value="0">No timer</option><option value="60">1 min</option><option value="90">90 sec</option><option value="120" selected>2 min</option><option value="180">3 min</option><option value="300">5 min</option></select>
+        </div>
+      </div>
+    </div>
+
+    <!-- JOIN -->
+    <div id="pane-join" style="display:none;flex-direction:column;gap:8px">
+      <input type="text" id="inp-code" placeholder="Room code (e.g. XKZY9)" maxlength="6" style="text-transform:uppercase"/>
+    </div>
+
+    <!-- Name + password (shared by solo/create/join) -->
+    <div id="pane-namepass" style="display:flex;flex-direction:column;gap:8px">
+      <input type="text" id="inp-name" placeholder="Your name" maxlength="20"/>
+      <div class="pwd-row" id="pwd-row">
+        <input type="password" id="inp-password" placeholder="Password (optional — lets you rejoin if disconnected)" maxlength="40" autocomplete="new-password"/>
+        <button class="pwd-toggle" onclick="togglePwd('inp-password')" title="Show/hide">👁</button>
+      </div>
+    </div>
+
+    <!-- REJOIN -->
+    <div id="pane-rejoin" style="display:none;flex-direction:column;gap:8px">
+      <div class="info-box">↩ <strong>Got disconnected?</strong> Enter your room code and password to jump back in exactly where you left off.</div>
+      <input type="text" id="rj-code" placeholder="Room code" maxlength="6" style="text-transform:uppercase"/>
+      <input type="text" id="rj-name" placeholder="Your name" maxlength="20"/>
+      <div class="pwd-row">
+        <input type="password" id="rj-password" placeholder="Your password" maxlength="40" autocomplete="current-password"/>
+        <button class="pwd-toggle" onclick="togglePwd('rj-password')" title="Show/hide">👁</button>
+      </div>
+      <div id="rj-players" style="display:none;flex-direction:column;gap:5px;max-height:150px;overflow-y:auto"></div>
+    </div>
+
+    <div class="err" id="werr"></div>
+    <button class="btn bp" style="width:100%" id="enter-btn" onclick="enterRoom()">Enter →</button>
+  </div>
+</div>
+
+<!-- LOBBY -->
+<div id="sl" class="screen col-center">
+  <div style="color:var(--mu);font-size:.82rem">Share this code with your class</div>
+  <div class="rcode" id="rc-display" onclick="copyCode()"></div>
+  <div style="color:var(--mu);font-size:.79rem">Players joined</div>
+  <div class="plist" id="lobby-players"></div>
+  <div class="lobby-info" id="lobby-info"></div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="btn bs" onclick="leaveRoom()">Leave</button>
+    <button class="btn bgr" id="start-btn" style="display:none" onclick="hostStart()">Start Game</button>
+    <span id="wait-msg" style="color:var(--mu);font-size:.84rem"></span>
+  </div>
+  <div style="color:var(--mu);font-size:.71rem">7 moves to explore · each new street costs one maths question · +75 pts each</div>
+</div>
+
+<!-- GENERATING OVERLAY (shown while host finds random locations) -->
+<div id="gen-overlay" class="screen col-center" style="display:none;background:var(--bg);z-index:50">
+  <div class="spinner"></div>
+  <div style="font-size:1rem;font-weight:700;color:var(--tx)" id="gen-title">Finding random locations…</div>
+  <div style="font-size:.84rem;color:var(--mu)" id="gen-sub">Searching the globe for Street View coverage</div>
+  <div style="display:flex;gap:5px;margin-top:4px" id="gen-dots"></div>
+</div>
+
+<!-- PRE-ROUND QUIZ — 7 questions, earn your moves -->
+<div id="sq" class="screen">
+  <div class="sq-header">
+    <div class="sq-title" id="sq-title">Round 1 — Earn your moves!</div>
+    <div class="sq-sub">Answer each question correctly to earn a move in Street View. 7 questions · +75 pts each correct answer.</div>
+    <div class="sq-progress">
+      <span class="sq-label">Questions:</span>
+      <div class="sq-dots" id="sq-dots"></div>
+    </div>
+  </div>
+  <div class="sq-card">
+    <div class="sq-q" id="sq-q"></div>
+    <div class="sq-ans-row">
+      <input type="text" class="sq-input" id="sq-input" placeholder="Your answer…" autocomplete="off" spellcheck="false"/>
+      <button class="sq-submit" id="sq-submit" onclick="quizAnswer()">Check ↵</button>
+    </div>
+    <div class="sq-hint" id="sq-hint"></div>
+    <div class="sq-fb" id="sq-fb"></div>
+    <div class="sq-tally" id="sq-tally">0 / 7 correct so far</div>
+  </div>
+</div>
+
+<!-- STREET VIEW -->
+<div id="sg" class="screen">
+  <div id="sv-el"></div>
+  <div id="sv-loading">
+    <div class="spinner"></div>
+    <div style="color:var(--mu);font-size:.83rem" id="sv-load-msg">Loading Street View…</div>
+  </div>
+  <div id="sv-topbar">
+    <span class="rtag" id="sv-round">Round 1 / 5</span>
+    <span class="roomtag" id="sv-room"></span>
+    <div class="tb-sp"></div>
+    <div class="moves-row">
+      <span class="moves-label">Moves</span>
+      <div class="mdots" id="mdots"></div>
+    </div>
+    <span class="pill pill-gold" id="sv-bonus">+0 bonus</span>
+    <div id="timer-pill" class="hidden">2:00</div>
+  </div>
+  <div id="sv-fb"></div>
+  <div id="waiting-badge" id="waiting-badge"></div>
+  <button id="guess-fab" onclick="openGuessMap()">🗺️ GUESS<span id="fab-sub">+0 pts earned</span></button>
+</div>
+
+<!-- MATH DIALOG -->
+<div id="math-dialog">
+  <div class="d-card">
+    <div class="d-hdr">
+      <div>
+        <div class="d-action" id="d-action">New area — answer to move there</div>
+        <div class="d-tag" id="d-tag">Correct = move unlocked &amp; +75 pts &nbsp;·&nbsp; Wrong = stay put</div>
+      </div>
+      <div class="d-pts" id="d-pts">+75 pts</div>
+    </div>
+    <div class="d-q" id="dq"></div>
+    <div class="ans-row">
+      <input type="text" id="ans-input" placeholder="Type your answer…" autocomplete="off" spellcheck="false"/>
+      <button id="ans-submit" onclick="checkAnswer()">Check ↵</button>
+    </div>
+    <div class="d-hint" id="d-hint"></div>
+    <div class="d-fb" id="dfb"></div>
+    <div class="d-progress">
+      <span class="dp-label" id="dp-label">Moves used:</span>
+      <div class="dp-dots" id="dp-dots"></div>
+    </div>
+  </div>
+</div>
+
+<!-- GUESS MAP -->
+<div id="sg-guess" class="screen">
+  <div id="gm-el"></div>
+  <div id="guess-bar">
+    <button class="btn bs" onclick="closeGuessMap()">← Back to Street View</button>
+    <div class="ginfo" id="ginfo">Click anywhere on the map to drop your pin</div>
+    <span class="gbonus" id="gbonus">+0 bonus</span>
+    <button class="btn bp" id="sub-btn" onclick="submitGuess()" disabled>Submit Guess</button>
+  </div>
+</div>
+
+<!-- ROUND RESULTS -->
+<div id="sr" class="screen">
+  <div id="rm-el"><div id="rm-map"></div></div>
+  <div class="rsb">
+    <div class="rsb-top">
+      <div style="font-weight:700;font-size:.93rem" id="res-title">Round Results</div>
+      <div style="font-size:.78rem;color:var(--bl);margin-top:2px" id="res-loc"></div>
+      <div class="rtabs">
+        <button class="rtab active" id="tab-res" onclick="switchResTab('results')">This Round</button>
+        <button class="rtab" id="tab-lb" onclick="switchResTab('leaderboard')">Leaderboard</button>
+      </div>
+    </div>
+    <div class="rsb-scroll" id="rsb-content"></div>
+    <div class="rsb-foot">
+      <div id="next-btn-wrap"></div>
+      <div style="margin-top:4px;font-size:.7rem;color:var(--mu);text-align:center" id="prog-lbl"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FINAL -->
+<div id="sf" class="screen">
+  <div style="font-size:2.5rem">🏆</div>
+  <div style="font-size:1.65rem;font-weight:800">Final Results</div>
+  <div class="flb" id="flb"><div class="flb-hdr"><span>Player</span><span>Total Score</span></div></div>
+  <div style="display:flex;gap:8px">
+    <button class="btn bs" onclick="leaveRoom()">Exit</button>
+    <button class="btn bgr" id="again-btn" style="display:none" onclick="newGame()">Play Again</button>
+  </div>
+</div>
+
+<script>
+/* =============================================
+   HARDCODED API KEY — no input needed
+============================================= */
+const GMAPS_KEY = 'AIzaSyCj8by7kZQTxM0b9iDUDBNg28tjmFP5EPc';
+
+/* =============================================
+   LOCATION POOL
+============================================= */
+function shuffle(a){let b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+
+/* =============================================
+   TRUE RANDOM LOCATION GENERATION
+   Weighted land zones → random point → validate
+   Street View exists → use that actual panorama.
+   Same approach as GeoGuessr.
+============================================= */
+
+// LOCATION GENERATION — 40% urban, verify navigation links exist
+
+const URBAN_SEEDS=[
+  [51.5074,-0.1278],[48.8566,2.3522],[52.5200,13.4050],[41.9028,12.4964],
+  [40.4168,-3.7038],[38.7223,-9.1393],[50.0755,14.4378],[47.4979,19.0402],
+  [59.9139,10.7522],[55.6761,12.5683],[53.3498,-6.2603],[52.3676,4.9041],
+  [50.8503,4.3517],[45.4654,9.1859],[37.9838,23.7275],[44.8176,20.4633],
+  [35.6762,139.6503],[37.5665,126.9780],[22.3193,114.1694],[1.3521,103.8198],
+  [13.7563,100.5018],[10.8231,106.6297],[3.1390,101.6869],[28.6139,77.2090],
+  [31.2304,121.4737],[39.9042,116.4074],[34.6937,135.5023],[25.2048,55.2708],
+  [24.4539,54.3773],[29.3759,47.9774],[25.2854,51.5310],
+  [40.7128,-74.0060],[34.0522,-118.2437],[41.8781,-87.6298],[29.7604,-95.3698],
+  [33.4484,-112.0740],[47.6062,-122.3321],[25.7617,-80.1918],[43.6532,-79.3832],
+  [45.5051,-73.5550],[-23.5505,-46.6333],[-34.6037,-58.3816],[4.7110,-74.0721],
+  [-12.0464,-77.0428],[-33.4489,-70.6693],
+  [-33.9249,18.4241],[-1.2921,36.8219],[6.5244,3.3792],[30.0444,31.2357],
+  [36.8065,10.1815],[-26.2041,28.0473],[14.6937,-17.4441],
+  [-33.8688,151.2093],[-37.8136,144.9631],[-36.8485,174.7633],
+];
+
+const SV_ZONES=[
+  [35,70,-10,40,15,'Europe'],
+  [50,60,-8,2,4,'Britain'],
+  [30,50,125,145,8,'Japan & Korea'],
+  [20,42,100,125,6,'China'],
+  [1,20,100,120,5,'SE Asia'],
+  [8,35,68,100,5,'South Asia'],
+  [25,65,-125,-65,14,'North America'],
+  [-55,12,-80,-35,7,'South America'],
+  [-35,37,-18,50,6,'Africa'],
+  [15,40,35,65,4,'Middle East'],
+  [-45,-10,110,155,5,'Oceania'],
+  [45,65,40,135,3,'Russia'],
+  [8,25,-90,-60,3,'Central America'],
+];
+const _ZONE_TOTAL=SV_ZONES.reduce((s,z)=>s+z[4],0);
+
+function randomLandPoint(){
+  let r=Math.random()*_ZONE_TOTAL,cum=0,zone=SV_ZONES[0];
+  for(const z of SV_ZONES){cum+=z[4];if(r<=cum){zone=z;break;}}
+  const lat=zone[0]+Math.random()*(zone[1]-zone[0]);
+  const lng=zone[2]+Math.random()*(zone[3]-zone[2]);
+  return{lat,lng,label:zone[5]};
+}
+
+function randomUrbanPoint(){
+  const seed=URBAN_SEEDS[Math.floor(Math.random()*URBAN_SEEDS.length)];
+  const lat=seed[0]+(Math.random()-0.5)*0.06;
+  const lng=seed[1]+(Math.random()-0.5)*0.06;
+  return{lat,lng,label:'Urban'};
+}
+
+// Find a pano that ALSO has at least one navigation link (player can walk somewhere)
+function findPanoNear(lat,lng,label,svc){
+  return new Promise(resolve=>{
+    svc.getPanorama(
+      {location:{lat,lng},radius:5000,source:google.maps.StreetViewSource.OUTDOOR},
+      (data,status)=>{
+        if(status!=='OK'){resolve(null);return;}
+        if(!data.links||data.links.length===0){resolve(null);return;}
+        resolve({lat:data.location.latLng.lat(),lng:data.location.latLng.lng(),panoId:data.location.pano,label});
+      }
+    );
+  });
+}
+
+async function generateLocations(n,svc,onProgress){
+  const result=[];
+  let attempts=0;
+  const targetUrban=Math.round(n*0.4);
+  while(result.length<n&&attempts<n*30){
+    attempts++;
+    const urbanSoFar=result.filter(l=>l.label==='Urban').length;
+    const useUrban=urbanSoFar<targetUrban&&Math.random()<0.6;
+    const pt=useUrban?randomUrbanPoint():randomLandPoint();
+    if(!useUrban){
+      const zoneCount=result.filter(l=>l.label===pt.label).length;
+      if(zoneCount>=3&&result.length<n-1) continue;
+    }
+    const loc=await findPanoNear(pt.lat,pt.lng,pt.label,svc);
+    if(loc){result.push(loc);if(onProgress)onProgress(result.length,n);}
+  }
+  return result;
+}
+
+/* =============================================
+   MATHS
+============================================= */
+const FRACS=[{n:1,d:2},{n:1,d:4},{n:3,d:4},{n:1,d:5},{n:2,d:5},{n:3,d:5},{n:4,d:5},{n:1,d:10},{n:3,d:10},{n:7,d:10},{n:9,d:10},{n:1,d:8},{n:3,d:8},{n:5,d:8},{n:7,d:8},{n:1,d:20},{n:3,d:20},{n:1,d:25},{n:2,d:25},{n:3,d:25},{n:4,d:25}];
+function fmtP(p){return(p%1===0?p:parseFloat(p.toFixed(1)))+'%'}
+function fmtD(d){return String(parseFloat(d.toFixed(3)))}
+function fmtF(f){return f.n+'/'+f.d}
+function makeQ(){
+  const T=['f2p','f2d','p2d','d2p','p2f','d2f'];
+  const t=T[Math.floor(Math.random()*T.length)];
+  const f=FRACS[Math.floor(Math.random()*FRACS.length)];
+  const d=f.n/f.d,p=d*100;
+  const ps=fmtP(p),ds=fmtD(d),fs=fmtF(f);
+  return{f2p:{q:`Convert <span class="mv">${fs}</span> to a percentage`,a:ps},f2d:{q:`Convert <span class="mv">${fs}</span> to a decimal`,a:ds},p2d:{q:`Convert <span class="mv">${ps}</span> to a decimal`,a:ds},d2p:{q:`Convert <span class="mv">${ds}</span> to a percentage`,a:ps},p2f:{q:`Convert <span class="mv">${ps}</span> to a simplified fraction`,a:fs},d2f:{q:`Convert <span class="mv">${ds}</span> to a simplified fraction`,a:fs}}[t];
+}
+function gcd(a,b){a=Math.abs(a);b=Math.abs(b);while(b){[a,b]=[b,a%b]}return a}
+function parseFrac(s){if(s.includes('/')){const p=s.split('/'),n=parseInt(p[0]),d=parseInt(p[1]);if(!isNaN(n)&&!isNaN(d)&&d!==0){const g=gcd(Math.abs(n),Math.abs(d));return{n:n/g,d:d/g};}}return null}
+function checkAns(raw,correct){
+  const u=raw.trim().replace(/\s/g,''),c=correct.trim().replace(/\s/g,'');
+  if(!u)return false;
+  if(u.toLowerCase()===c.toLowerCase())return true;
+  if(c.endsWith('%')){const cv=parseFloat(c);const uv=parseFloat(u.replace(/%/g,''));return!isNaN(uv)&&Math.abs(uv-cv)<0.01;}
+  if(c.includes('/')){const cf=parseFrac(c);if(!cf)return false;const uf=parseFrac(u);if(uf)return uf.n===cf.n&&uf.d===cf.d;const uv=parseFloat(u);return!isNaN(uv)&&Math.abs(uv-cf.n/cf.d)<0.001;}
+  const cv=parseFloat(c);const uf=parseFrac(u);if(uf)return Math.abs(uf.n/uf.d-cv)<0.001;const uv=parseFloat(u.replace(/%/g,''));return!isNaN(uv)&&Math.abs(uv-cv)<0.001;
+}
+function ansHint(c){if(c.endsWith('%'))return 'Type a percentage — e.g. 75 or 75%';if(c.includes('/'))return 'Type a simplified fraction — e.g. 3/4';return 'Type a decimal — e.g. 0.75';}
+
+function haversine(a,b,c,d){const R=6371,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180;const x=Math.sin(dL/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)**2;return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x))}
+function scoreDist(d){return Math.max(0,Math.round(15000*Math.exp(-d/2000)))}
+
+const MEDAL=['🥇','🥈','🥉'];
+const PCOLS=['#58a6ff','#f78166','#3fb950','#f0c93a','#d2a8ff','#79c0ff','#ffa657','#56d364'];
+const MAX_MOVES=7, BONUS_PER_MOVE=75;
+
+/* =============================================
+   FIREBASE REALTIME DATABASE — real cross-device
+   multiplayer. Reads/writes via Firebase REST API.
+   No SDK needed. Solo uses in-memory fallback.
+============================================= */
+const _mem={};
+let FIREBASE_URL='https://mathguessr-664cd-default-rtdb.firebaseio.com'; // hardcoded
+
+async function rrd(code){
+  if(code==='SOLO') return _mem['SOLO']||null;
+  if(!FIREBASE_URL){ return _mem[code]||null; }
+  try{
+    const r=await fetch(FIREBASE_URL+'/rooms/'+code+'.json',{cache:'no-store'});
+    if(!r.ok) return _mem[code]||null;
+    const data=await r.json();
+    if(data) _mem[code]=data; // cache locally
+    return data||null;
+  }catch(e){
+    console.warn('Firebase read failed:',e);
+    return _mem[code]||null;
+  }
+}
+
+async function rwr(code,data){
+  const clone=JSON.parse(JSON.stringify(data));
+  _mem[code]=clone;
+  if(code==='SOLO') return;
+  if(!FIREBASE_URL) return;
+  try{
+    const r=await fetch(FIREBASE_URL+'/rooms/'+code+'.json',{
+      method:'PUT',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(clone),
+    });
+    if(!r.ok) console.warn('Firebase write HTTP error:',r.status);
+  }catch(e){
+    console.warn('Firebase write failed:',e);
+  }
+}
+
+/* =============================================
+   STATE
+============================================= */
+const S={
+  pid:Math.random().toString(36).substr(2,9),
+  pname:'',roomCode:'',isHost:false,isSolo:false,
+  roundDuration:0,roundLocs:[],
+  nav:{visitedPanos:new Set(),currentPano:null,currentLinks:[],lastPovHeading:0,movesBudget:0,movesUsed:0,snapUntil:0},
+  quiz:{questions:[],idx:0,correct:0},
+  curQ:null,totalBonus:0,submitted:false,pin:null,
+  guessBonusDone:false,
+  timerSec:0,timerInterval:null,timerPaused:false,
+  poll:null,localPhase:'',localRound:-1,prevScores:{},
+  resTab:'results',lastRoom:null,
+  currentLoc:null,
+  gm:{ready:false,sv:null,guess:null,result:null,svc:null,rM:[],rL:[]}
+};
+
+/* =============================================
+   SCREEN
+============================================= */
+function show(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+function toast(msg){const t=document.createElement('div');t.className='toast';t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),1800)}
+// switchTab defined in ENTER section
+
+/* =============================================
+   GOOGLE MAPS LOADER
+============================================= */
+// gm_authFailure is called by Google when the key is invalid, billing is off,
+// or the Maps JavaScript API is not enabled — shows a clear on-screen message.
+window.gm_authFailure=function(){
+  const msg=document.getElementById('maps-error-msg');
+  if(msg){
+    msg.style.display='flex';
+    // Try to pull the specific error out of the console
+    const detail=(window._gmLastError)||'Unknown auth error — see browser console (F12) for details.';
+    document.getElementById('maps-error-detail').textContent=detail;
+  }
+  document.getElementById('werr').textContent='Google Maps auth failed — see the red box above.';
+};
+
+// Intercept console.error so we can surface the specific Maps error code
+const _origErr=console.error.bind(console);
+console.error=function(...args){
+  const str=args.join(' ');
+  if(str.includes('Google Maps')||str.includes('gm_')||str.includes('ApiProject')||str.includes('Billing')||str.includes('Maps')){
+    window._gmLastError=str;
+    const msg=document.getElementById('maps-error-msg');
+    if(msg&&msg.style.display==='flex'){
+      document.getElementById('maps-error-detail').textContent=str;
+    }
+  }
+  _origErr(...args);
+};
+
+let mapsLoaded=false;
+function loadMaps(){
+  return new Promise((resolve,reject)=>{
+    if(window.google?.maps?.StreetViewPanorama){resolve();return;}
+    if(mapsLoaded){
+      // Script already injected — wait for it
+      let waited=0;
+      const iv=setInterval(()=>{
+        waited+=100;
+        if(window.google?.maps?.StreetViewPanorama){clearInterval(iv);resolve();}
+        else if(waited>8000){clearInterval(iv);reject(new Error('Google Maps timed out loading.'));}
+      },100);
+      return;
+    }
+    mapsLoaded=true;
+    const cb='__gm_'+Math.random().toString(36).substr(2,8);
+    window[cb]=()=>{delete window[cb];resolve();};
+    const s=document.createElement('script');
+    // Removed v=weekly — use stable default channel
+    s.src=`https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GMAPS_KEY)}&callback=${cb}`;
+    s.async=true;s.defer=true;
+    s.onerror=()=>{
+      mapsLoaded=false;delete window[cb];
+      reject(new Error('Script failed to download. Check your internet connection.'));
+    };
+    document.head.appendChild(s);
+  });
+}
+
+function initMapObjects(){
+  if(S.gm.ready)return;S.gm.ready=true;
+  S.gm.sv=new google.maps.StreetViewPanorama(document.getElementById('sv-el'),{
+    visible:false,clickToGo:false,linksControl:true,panControl:true,
+    zoomControl:true,scrollwheel:true,
+    addressControl:false,showRoadLabels:false,
+    fullscreenControl:false,motionTracking:false,
+    motionTrackingControl:false,enableCloseButton:false,
+  });
+  S.gm.sv.addListener('pov_changed',()=>{if(Date.now()>S.nav.snapUntil)S.nav.lastPovHeading=S.gm.sv.getPov().heading;});
+  S.gm.sv.addListener('links_changed',()=>{if(Date.now()>S.nav.snapUntil+200)S.nav.currentLinks=S.gm.sv.getLinks()||[];});
+  S.gm.sv.addListener('pano_changed',onPanoChanged);
+  S.gm.guess=new google.maps.Map(document.getElementById('gm-el'),{center:{lat:20,lng:0},zoom:2,zoomControl:true,gestureHandling:'greedy',clickableIcons:false});
+  S.gm.guess.addListener('click',onGuessClick);
+  S.gm.result=new google.maps.Map(document.getElementById('rm-map'),{center:{lat:20,lng:0},zoom:2,streetViewControl:false,clickableIcons:false});
+  S.gm.svc=new google.maps.StreetViewService();
+}
+
+/* =============================================
+   NAVIGATION GATE
+============================================= */
+function onPanoChanged(){
+  const nav=S.nav;
+  if(Date.now()<nav.snapUntil)return;
+  const newPano=S.gm.sv.getPano();
+  if(!newPano||newPano===nav.currentPano)return;
+
+  // Already visited — free to revisit, no cost
+  if(nav.visitedPanos.has(newPano)){
+    nav.currentPano=newPano;
+    nav.currentLinks=S.gm.sv.getLinks()||[];
+    nav.lastPovHeading=S.gm.sv.getPov().heading;
+    updateHUD();return;
+  }
+
+  // Out of earned moves — snap back and warn
+  if(nav.movesUsed>=nav.movesBudget){
+    nav.snapUntil=Date.now()+900;
+    S.gm.sv.setPano(nav.currentPano);
+    S.gm.sv.setPov({heading:nav.lastPovHeading,pitch:S.gm.sv.getPov().pitch});
+    showFB('No moves left! You earned '+nav.movesBudget+' move'+(nav.movesBudget===1?'':'s')+' — make your guess.','info');
+    return;
+  }
+
+  // ✅ Move allowed — consume one move
+  nav.visitedPanos.add(newPano);
+  nav.currentPano=newPano;
+  nav.movesUsed++;
+  setTimeout(()=>{
+    nav.currentLinks=S.gm.sv.getLinks()||[];
+    nav.lastPovHeading=S.gm.sv.getPov().heading;
+    updateHUD();
+    const left=nav.movesBudget-nav.movesUsed;
+    if(left===0) showFB('Last move used — make your guess!','info');
+    else showFB(left+' move'+(left===1?'':'s')+' remaining','ok');
+  },300);
+}
+// Navigation is now budget-based — snapBack/executePendingMove removed
+
+/* =============================================
+   MATH DIALOG
+============================================= */
+// openMathDialog removed — quiz handles question-asking now
+
+function checkAnswer(){
+  // Only used for the pre-guess bonus question now
+  const q=S.curQ;if(!q)return;
+  const raw=document.getElementById('ans-input').value;if(!raw.trim())return;
+  const ok=checkAns(raw,q.a);
+  document.getElementById('ans-input').disabled=true;
+  document.getElementById('ans-submit').disabled=true;
+  document.getElementById('ans-input').className=ok?'ok':'no';
+  const fb=document.getElementById('dfb');
+  // Bonus question handling
+  S.guessBonusDone=true;
+  const dot=document.getElementById('bonus-dot');
+  if(ok){
+    S.totalBonus+=1000;
+    if(dot)dot.className='dp-dot earned';
+    fb.textContent='✓ Correct! +1,000 bonus points!';
+    fb.className='d-fb ok';
+    updateHUD();
+  }else{
+    fb.innerHTML='✗ Incorrect — answer was <strong>'+q.a+'</strong>. No bonus, but you still get to guess!';
+    fb.className='d-fb no';
+  }
+  setTimeout(()=>{
+    document.getElementById('math-dialog').classList.remove('active');
+    document.getElementById('d-action').textContent='Answer correctly to move';
+    document.getElementById('d-tag').textContent='Correct = move + pts · Wrong = stay put';
+    document.getElementById('d-pts').textContent='+75 pts';
+    S.curQ=null;
+    openGuessMap();
+  },1700);
+}
+// Big red X overlay — shown briefly when a wrong answer means no move
+function showRedX(){
+  let el=document.getElementById('red-x-overlay');
+  if(!el){
+    el=document.createElement('div');
+    el.id='red-x-overlay';
+    el.style.cssText='position:fixed;inset:0;z-index:200;display:flex;align-items:center;justify-content:center;pointer-events:none;opacity:0;transition:opacity .15s';
+    el.innerHTML='<div style="font-size:20vw;color:#f78166;font-weight:900;text-shadow:0 0 40px rgba(247,129,102,.6);line-height:1">✕</div>';
+    document.body.appendChild(el);
+  }
+  el.style.opacity='1';
+  setTimeout(()=>{el.style.opacity='0';},600);
+}
+
+let _fbTimer=null;
+function showFB(msg,type){
+  const el=document.getElementById('sv-fb');el.textContent=msg;el.className='';void el.offsetWidth;el.className=`show ${type}`;
+  clearTimeout(_fbTimer);_fbTimer=setTimeout(()=>el.classList.remove('show'),2800);
+}
+
+/* =============================================
+   TIMER
+============================================= */
+function fmtTime(s){return`${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`}
+function startTimer(secs){
+  stopTimer();if(!secs)return;S.timerSec=secs;S.timerPaused=false;
+  const pill=document.getElementById('timer-pill');pill.className='';pill.textContent=fmtTime(secs);
+  S.timerInterval=setInterval(()=>{
+    if(S.timerPaused)return;S.timerSec--;
+    pill.textContent=fmtTime(Math.max(0,S.timerSec));
+    if(S.timerSec<=10)pill.className='urgent';else if(S.timerSec<=30)pill.className='warn';
+    if(S.timerSec<=0){stopTimer();showFB("⏰ Time's up!",'info');setTimeout(()=>{if(!S.submitted){openGuessMap();setTimeout(()=>{if(!S.submitted)submitGuess();},1500);}},700);}
+  },1000);
+}
+function pauseTimer(){S.timerPaused=true;}
+function resumeTimer(){S.timerPaused=false;}
+function stopTimer(){if(S.timerInterval){clearInterval(S.timerInterval);S.timerInterval=null;}document.getElementById('timer-pill').className='hidden';}
+
+/* =============================================
+   LOAD STREET VIEW
+============================================= */
+function loadSV(loc){
+  const loadEl=document.getElementById('sv-loading'),msgEl=document.getElementById('sv-load-msg');
+  loadEl.classList.remove('gone');msgEl.textContent='Loading Street View…';
+  const nav=S.nav;
+  // nav state already reset in resetRound — just clear pano tracking
+  nav.visitedPanos=new Set();nav.currentPano=null;nav.currentLinks=[];
+  nav.lastPovHeading=Math.random()*360;nav.snapUntil=0;
+  function activatePano(panoId){
+    const h=Math.random()*360;nav.lastPovHeading=h;
+    nav.snapUntil=Date.now()+1600;
+    S.gm.sv.setPano(panoId);
+    S.gm.sv.setPov({heading:h,pitch:0});
+    nav.visitedPanos.add(panoId);
+    nav.currentPano=panoId;
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      S.gm.sv.setVisible(true);
+      google.maps.event.trigger(S.gm.sv,'resize');
+      setTimeout(()=>{
+        loadEl.classList.add('gone');
+        nav.currentLinks=S.gm.sv.getLinks()||[];
+      },800);
+    }));
+  }
+  // If we already have a validated panoId from generation, use it directly
+  if(loc.panoId){
+    activatePano(loc.panoId);
+    return;
+  }
+  // Fallback: search near coordinates
+  S.gm.svc.getPanorama({location:{lat:loc.lat,lng:loc.lng},radius:500,source:google.maps.StreetViewSource.OUTDOOR},(d,s)=>{
+    if(s==='OK'){activatePano(d.location.pano);return;}
+    msgEl.textContent='Searching nearby…';
+    S.gm.svc.getPanorama({location:{lat:loc.lat,lng:loc.lng},radius:50000},(d2,s2)=>{
+      if(s2==='OK')activatePano(d2.location.pano);
+      else{msgEl.textContent='No Street View here.';setTimeout(()=>loadEl.classList.add('gone'),2000);}
+    });
+  });
+}
+
+/* =============================================
+   ENTER
+============================================= */
+function genCode(){return Math.random().toString(36).substr(2,5).toUpperCase()}
+
+function togglePwd(id){
+  const el=document.getElementById(id);
+  el.type=el.type==='password'?'text':'password';
+}
+
+function saveSession(roomCode,pid,name,password,isHost){
+  try{localStorage.setItem('mg_session',JSON.stringify({roomCode,pid,name,password,isHost,ts:Date.now()}));}catch{}
+}
+function clearSession(){try{localStorage.removeItem('mg_session');}catch{}}
+function loadSession(){try{const s=localStorage.getItem('mg_session');return s?JSON.parse(s):null;}catch{return null;}}
+
+function switchTab(t){
+  ['single','create','join','rejoin'].forEach(x=>{
+    document.getElementById('t-'+x).classList.toggle('active',x===t);
+    const p=document.getElementById('pane-'+x);
+    if(p)p.style.display=x===t?(x==='create'?'flex':x==='rejoin'?'flex':'block'):'none';
+  });
+  // Show/hide name+password row (not needed on rejoin tab — it has its own fields)
+  const np=document.getElementById('pane-namepass');
+  if(np)np.style.display=t==='rejoin'?'none':'flex';
+  // Update button
+  const btn=document.getElementById('enter-btn');
+  if(btn)btn.textContent=t==='rejoin'?'↩ Bring Me Back →':'Enter →';
+  document.getElementById('werr').textContent='';
+}
+
+async function enterRoom(){
+  const err=document.getElementById('werr');
+  const tab=document.querySelector('.tab.active').id.replace('t-','');
+
+  if(tab==='rejoin'){
+    await rejoinRoom();
+    return;
+  }
+
+  const name=document.getElementById('inp-name').value.trim();
+  const password=document.getElementById('inp-password').value.trim();
+  if(!name){err.textContent='Please enter your name';return;}
+  err.textContent='Loading…';
+  try{await loadMaps();err.textContent='';}
+  catch(e){err.textContent=e.message;return;}
+  S.pname=name;
+
+  if(tab==='single'){
+    S.isSolo=true;S.isHost=true;S.roomCode='SOLO';S.roundDuration=0;
+    initMapObjects();
+    await generateAndStart(5,0,'SOLO',name,null);
+    return;
+  }
+
+  S.isSolo=false;
+  if(tab==='join'){
+    const code=document.getElementById('inp-code').value.trim().toUpperCase();
+    if(!code){err.textContent='Enter a room code';return;}
+    err.textContent='Finding room…';
+    const room=await rrd(code);
+    if(!room){err.textContent='Room not found — check the code and try again';return;}
+    if(room.phase!=='lobby'){err.textContent='Game already started — use the ↩ Rejoin tab instead';return;}
+    err.textContent='';
+    S.roomCode=code;S.isHost=false;S.roundDuration=room.roundDuration||0;S.roundLocs=room.locationData||[];
+    room.players[S.pid]={name,totalScore:0,roundScores:[],password:password||''};
+    await rwr(code,room);
+    saveSession(code,S.pid,name,password||'',false);
+    initMapObjects();showLobby();
+  }else{
+    const n=parseInt(document.getElementById('inp-rounds').value);
+    const timer=parseInt(document.getElementById('inp-timer').value);
+    S.roomCode=genCode();S.isHost=true;S.roundDuration=timer;
+    // Store host password too
+    initMapObjects();
+    await generateAndStart(n,timer,S.roomCode,name,'lobby',password||'');
+  }
+}
+
+/* =============================================
+   REJOIN
+============================================= */
+async function rejoinRoom(){
+  const err=document.getElementById('werr');
+  const code=document.getElementById('rj-code').value.trim().toUpperCase();
+  const name=document.getElementById('rj-name').value.trim();
+  const password=document.getElementById('rj-password').value.trim();
+  if(!code){err.textContent='Enter your room code';return;}
+  if(!name){err.textContent='Enter your name';return;}
+  if(!password){err.textContent='Enter your password';return;}
+
+  err.textContent='Looking up room…';
+  const room=await rrd(code);
+  if(!room){err.textContent='Room not found — check the code';return;}
+
+  // Find the player by name + password match
+  const match=Object.entries(room.players).find(([id,p])=>
+    p.name.toLowerCase()===name.toLowerCase() && (p.password||'')=== password
+  );
+  if(!match){
+    err.textContent='Name or password not recognised for this room';
+    return;
+  }
+
+  err.textContent='';
+  const [originalPid, playerData]=match;
+
+  // Restore identity
+  S.pid=originalPid;
+  S.pname=playerData.name;
+  S.roomCode=code;
+  S.isHost=room.host===originalPid;
+  S.isSolo=false;
+  S.roundLocs=room.locationData||[];
+  S.roundDuration=room.roundDuration||0;
+
+  saveSession(code,originalPid,name,password,S.isHost);
+
+  try{await loadMaps();} catch(e){err.textContent=e.message;return;}
+  initMapObjects();
+
+  // Drop into current game state
+  if(room.phase==='lobby'){
+    showLobby();startPoll();
+  }else if(room.phase==='playing'){
+    S.localPhase='playing';S.localRound=room.currentRound;
+    startRound(room);startPoll();
+  }else if(room.phase==='results'){
+    S.localPhase='results';S.localRound=room.currentRound;
+    showResults(room);startPoll();
+  }else if(room.phase==='finished'){
+    S.localPhase='finished';
+    showFinal(room);
+  }
+  toast('Welcome back, '+playerData.name+'!');
+}
+
+/* =============================================
+   GENERATE LOCATIONS THEN START
+   Shows progress overlay while searching.
+   Solo → jumps straight to game.
+   Multiplayer → goes to lobby after.
+============================================= */
+async function generateAndStart(n,timer,roomCode,name,nextScreen,password=''){
+  // Show generating overlay
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  const ov=document.getElementById('gen-overlay');
+  ov.style.display='flex';ov.classList.add('active');
+
+  const dots=document.getElementById('gen-dots');
+  const sub=document.getElementById('gen-sub');
+  function renderDots(done,total){
+    dots.innerHTML=Array(total).fill(0).map((_,i)=>
+      `<div style="width:10px;height:10px;border-radius:50%;background:${i<done?'var(--gr)':'rgba(255,255,255,.15)'};transition:background .3s"></div>`
+    ).join('');
+    sub.textContent=`Found ${done} of ${total} locations…`;
+  }
+  renderDots(0,n);
+
+  const locs=await generateLocations(n,S.gm.svc,(done,total)=>renderDots(done,total));
+  S.roundLocs=locs;
+
+  ov.style.display='none';ov.classList.remove('active');
+
+  if(nextScreen==='lobby'){
+    await rwr(roomCode,{phase:'lobby',players:{[S.pid]:{name,totalScore:0,roundScores:[],password:password||''}},host:S.pid,currentRound:1,totalRounds:n,roundDuration:timer,locationData:locs,locationIndex:0,guesses:{}});
+    saveSession(roomCode,S.pid,name,password||'',true);
+    showLobby();
+  }else{
+    // Solo — go straight to game
+    const room={phase:'playing',players:{[S.pid]:{name,totalScore:0,roundScores:[],password:''}},host:S.pid,currentRound:1,totalRounds:n,roundDuration:timer,locationData:locs,locationIndex:0,guesses:{}};
+    await rwr(roomCode,room);
+    S.localPhase='';S.localRound=-1;
+    startRound(room);
+  }
+}
+
+/* =============================================
+   LOBBY
+============================================= */
+function showLobby(){
+  show('sl');
+  document.getElementById('rc-display').textContent=S.roomCode;
+  document.getElementById('start-btn').style.display=S.isHost?'inline-flex':'none';
+  document.getElementById('wait-msg').textContent=S.isHost?'':'Waiting for host to start…';
+  startPoll();
+}
+function updateLobby(room){
+  document.getElementById('lobby-players').innerHTML=Object.entries(room.players).map(([id,p])=>`<div class="pi"><div class="pdot ${id===room.host?'host':''}"></div>${p.name}${id===room.host?' (host)':''}</div>`).join('');
+  const dur=room.roundDuration||0;
+  document.getElementById('lobby-info').innerHTML=`Rounds: <span>${room.totalRounds}</span> &nbsp; Timer: <span>${dur?fmtTime(dur):'None'}</span> &nbsp; Moves per round: <span>7</span>`;
+}
+function copyCode(){navigator.clipboard?.writeText(S.roomCode).catch(()=>{});toast('Copied!')}
+function leaveRoom(){stopPoll();stopTimer();clearSession();S.isSolo=false;S.localPhase='';S.localRound=-1;show('sw')}
+async function hostStart(){const room=await rrd(S.roomCode);if(!room||!S.isHost)return;room.phase='playing';await rwr(S.roomCode,room);}
+
+/* =============================================
+   ROUND
+============================================= */
+function resetRound(){S.totalBonus=0;S.submitted=false;S.pin=null;S.curQ=null;S.guessBonusDone=false;S.quiz={questions:[],idx:0,correct:0};S.nav.visitedPanos=new Set();S.nav.currentPano=null;S.nav.currentLinks=[];S.nav.lastPovHeading=Math.random()*360;S.nav.movesBudget=0;S.nav.movesUsed=0;S.nav.snapUntil=0;}
+function startRound(room){
+  resetRound();
+  S.roundLocs=room.locationData||S.roundLocs;S.roundDuration=room.roundDuration||0;
+  const loc=S.roundLocs[room.locationIndex||0];if(!loc)return;
+  S.currentLoc=loc; // store for enterStreetView to use
+  // Pre-generate 7 quiz questions
+  S.quiz.questions=Array(MAX_MOVES).fill(0).map(()=>makeQ());
+  S.quiz.idx=0;S.quiz.correct=0;
+  // Show quiz screen — SV will load AFTER quiz finishes
+  show('sq');
+  document.getElementById('sq-title').textContent='Round '+room.currentRound+' — Earn your moves!';
+  document.getElementById('sv-round').textContent='Round '+room.currentRound+' / '+room.totalRounds;
+  document.getElementById('sub-btn').textContent='Submit Guess';
+  document.getElementById('sub-btn').disabled=true;
+  document.getElementById('waiting-badge').style.display='none';
+  renderQuiz();
+}
+
+function renderQuiz(){
+  const qz=S.quiz;
+  const q=qz.questions[qz.idx];
+  document.getElementById('sq-q').innerHTML=q.q;
+  document.getElementById('sq-hint').textContent=ansHint(q.a);
+  document.getElementById('sq-input').value='';
+  document.getElementById('sq-input').className='sq-input';
+  document.getElementById('sq-input').disabled=false;
+  document.getElementById('sq-submit').disabled=false;
+  document.getElementById('sq-fb').textContent='';document.getElementById('sq-fb').className='sq-fb';
+  document.getElementById('sq-tally').textContent=qz.correct+' / '+MAX_MOVES+' correct so far';
+  // Dots: green=correct, red=wrong, blue=current, grey=upcoming
+  document.getElementById('sq-dots').innerHTML=Array(MAX_MOVES).fill(0).map((_,i)=>{
+    if(i<qz.idx){
+      const wasCorrect=(i<qz.correct||(qz.idx-i<=qz.correct)); // approximate
+      return '<div class="sq-dot '+(i< (qz.idx-(qz.idx-qz.correct)) ? 'wrong' : 'correct')+'"></div>';
+    }
+    if(i===qz.idx) return '<div class="sq-dot current"></div>';
+    return '<div class="sq-dot empty"></div>';
+  }).join('');
+  // Better dot rendering — track individually
+  renderQuizDots();
+  setTimeout(()=>document.getElementById('sq-input').focus(),100);
+}
+
+function renderQuizDots(){
+  const qz=S.quiz;
+  document.getElementById('sq-dots').innerHTML=qz.questions.slice(0,MAX_MOVES).map((_,i)=>{
+    if(i>qz.idx) return '<div class="sq-dot empty"></div>';
+    if(i===qz.idx) return '<div class="sq-dot current"></div>';
+    return '<div class="sq-dot '+(qz.results&&qz.results[i]?'correct':'wrong')+'"></div>';
+  }).join('');
+}
+
+function quizAnswer(){
+  const qz=S.quiz;
+  const q=qz.questions[qz.idx];
+  const raw=document.getElementById('sq-input').value;
+  if(!raw.trim())return;
+  const ok=checkAns(raw,q.a);
+  if(!qz.results)qz.results=[];
+  qz.results[qz.idx]=ok;
+  document.getElementById('sq-input').disabled=true;
+  document.getElementById('sq-submit').disabled=true;
+  document.getElementById('sq-input').className='sq-input '+(ok?'ok':'no');
+  const fb=document.getElementById('sq-fb');
+  if(ok){
+    qz.correct++;
+    S.totalBonus+=BONUS_PER_MOVE;
+    fb.textContent='✓ Correct! +'+BONUS_PER_MOVE+' pts — move earned!';
+    fb.className='sq-fb ok';
+  }else{
+    fb.innerHTML='✗ Incorrect — answer was <strong>'+q.a+'</strong>.';
+    fb.className='sq-fb no';
+  }
+  document.getElementById('sq-tally').textContent=qz.correct+' / '+MAX_MOVES+' correct so far';
+  renderQuizDots();
+  qz.idx++;
+  setTimeout(()=>{
+    if(qz.idx<MAX_MOVES){
+      renderQuiz();
+    }else{
+      // Quiz done — set move budget and enter Street View
+      S.nav.movesBudget=qz.correct;
+      S.nav.movesUsed=0;
+      updateHUD();
+      document.getElementById('sv-round').textContent='Round '+S.roundLocs[0].label||'';
+      enterStreetView();
+    }
+  },1300);
+}
+
+function enterStreetView(){
+  const earned=S.nav.movesBudget;
+  // Show SV screen with loading overlay
+  show('sg');
+  document.getElementById('sv-loading').classList.remove('gone');
+  document.getElementById('sv-load-msg').textContent='Loading Street View…';
+  document.getElementById('sv-room').textContent=S.isSolo?'Solo':'Room: '+S.roomCode;
+  document.getElementById('sv-bonus').textContent='+'+S.totalBonus+' bonus';
+  updateHUD();
+  showFB('You earned '+earned+' move'+(earned===1?'':'s')+'! Explore!','ok');
+  // Start timer
+  if(S.roundDuration) startTimer(S.roundDuration);
+  // NOW load Street View — container is fully visible, tiles will render properly
+  if(S.currentLoc) loadSV(S.currentLoc);
+}
+
+
+function openGuessMap(){
+  if(S.submitted)return;
+  // Bonus question once per round before the map opens
+  if(!S.guessBonusDone){openBonusQuestion();return;}
+  // Open map
+  pauseTimer();show('sg-guess');
+  if(S.pin){const pos=S.pin.getPosition();document.getElementById('ginfo').textContent='Pin: '+pos.lat().toFixed(2)+'°, '+pos.lng().toFixed(2)+'°';document.getElementById('sub-btn').disabled=false;}
+  else{document.getElementById('ginfo').textContent='Click anywhere on the map to drop your pin';document.getElementById('sub-btn').disabled=true;}
+  setTimeout(()=>google.maps.event.trigger(S.gm.guess,'resize'),150);
+}
+
+function openBonusQuestion(){
+  const q=makeQ(); S.curQ=q;
+  document.getElementById('d-action').textContent='Bonus question before you guess!';
+  document.getElementById('d-tag').textContent='Correct = +1,000 bonus points  ·  Wrong = no bonus, but you still get to guess';
+  document.getElementById('d-pts').textContent='+1,000 pts';
+  document.getElementById('dp-label').textContent='One-time bonus:';
+  document.getElementById('dp-dots').innerHTML=
+    '<div class="dp-dot empty" id="bonus-dot"></div>';
+  document.getElementById('dq').innerHTML=q.q;
+  document.getElementById('d-hint').textContent=ansHint(q.a);
+  document.getElementById('ans-input').value='';
+  document.getElementById('ans-input').className='';
+  document.getElementById('ans-input').disabled=false;
+  document.getElementById('ans-submit').disabled=false;
+  document.getElementById('dfb').textContent='';
+  document.getElementById('dfb').className='d-fb';
+  document.getElementById('math-dialog').classList.add('active');
+  pauseTimer();
+  setTimeout(()=>document.getElementById('ans-input').focus(),250);
+}
+function closeGuessMap(){resumeTimer();show('sg');}
+
+// openGuessGate removed — quiz screen replaces this
+
+function onGuessClick(e){if(S.submitted)return;if(S.pin)S.pin.setMap(null);S.pin=new google.maps.Marker({position:e.latLng,map:S.gm.guess,icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:'#58a6ff',fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:9}});document.getElementById('ginfo').textContent=`Pin: ${e.latLng.lat().toFixed(2)}°, ${e.latLng.lng().toFixed(2)}°`;document.getElementById('sub-btn').disabled=false;}
+
+async function submitGuess(){
+  if(S.submitted)return;S.submitted=true;stopTimer();
+  document.getElementById('sub-btn').disabled=true;document.getElementById('sub-btn').textContent='✓ Submitted!';
+  const room=await rrd(S.roomCode);if(!room)return;
+  const loc=S.roundLocs[room.locationIndex||0];
+  let geo=0,dist=0,lat=0,lng=0;
+  if(S.pin){const pos=S.pin.getPosition();lat=pos.lat();lng=pos.lng();dist=haversine(lat,lng,loc.lat,loc.lng);geo=scoreDist(dist);}
+  const total=geo+S.totalBonus;
+  room.guesses=room.guesses||{};
+  room.guesses[S.pid]={lat,lng,score:total,geoScore:geo,mathBonus:S.totalBonus,distance:Math.round(dist)};
+  room.players[S.pid].totalScore=(room.players[S.pid].totalScore||0)+total;
+  room.players[S.pid].roundScores=room.players[S.pid].roundScores||[];room.players[S.pid].roundScores.push(total);
+
+  // All players submitted? → results immediately
+  const allIn=Object.keys(room.players).every(id=>room.guesses[id]);
+  if(allIn) room.phase='results';
+  await rwr(S.roomCode,room);
+
+  if(S.isSolo){showResults(room);return;}
+
+  // Multiplayer: go back to SV screen and show waiting badge
+  show('sg');
+  updateWaitingBadge(room);
+}
+
+// Show who has/hasn't submitted. Host gets a Force Results button.
+function updateWaitingBadge(room){
+  const wb=document.getElementById('waiting-badge');
+  if(!room||!room.players){wb.style.display='none';return;}
+  const guesses=room.guesses||{};
+  const players=Object.entries(room.players);
+  const pending=players.filter(([id])=>!guesses[id]);
+  const done=players.filter(([id])=>!!guesses[id]);
+
+  let html=`<div class="wb-text">✓ Guess submitted</div>`;
+  html+=`<div class="wb-players">`;
+  players.forEach(([id,p])=>{
+    const in_=!!guesses[id];
+    html+=`<div class="wp ${in_?'done':'wait'}">${in_?'✓':'…'} ${p.name}</div>`;
+  });
+  html+=`</div>`;
+
+  if(pending.length>0 && S.isHost){
+    html+=`<button id="force-btn" onclick="forceResults()">Show Results Now (${done.length}/${players.length} submitted)</button>`;
+  }else if(pending.length===0){
+    html+=`<div style="color:var(--gr);font-size:.72rem">All submitted — loading results…</div>`;
+  }else{
+    html+=`<div style="font-size:.72rem">Waiting for ${pending.length} more player${pending.length>1?'s':''}…</div>`;
+  }
+
+  wb.innerHTML=html;
+  wb.style.display='flex';
+}
+
+// Host can force results at any time after submitting
+async function forceResults(){
+  const room=await rrd(S.roomCode);if(!room||!S.isHost)return;
+  // Give unsubmitted players a 0-point guess so they appear in results
+  Object.keys(room.players).forEach(id=>{
+    if(!room.guesses[id]){
+      room.guesses[id]={lat:0,lng:0,score:0,geoScore:0,mathBonus:0,distance:0,noGuess:true};
+    }
+  });
+  room.phase='results';
+  await rwr(S.roomCode,room);
+}
+
+/* =============================================
+   RESULTS
+============================================= */
+function switchResTab(t){S.resTab=t;document.getElementById('tab-res').classList.toggle('active',t==='results');document.getElementById('tab-lb').classList.toggle('active',t==='leaderboard');if(S.lastRoom)renderResContent(S.lastRoom);}
+function showResults(room){
+  S.lastRoom=room;S.resTab='results';show('sr');
+  S.gm.rM.forEach(m=>m.setMap(null));S.gm.rM=[];S.gm.rL.forEach(l=>l.setMap(null));S.gm.rL=[];
+  const loc=S.roundLocs[room.locationIndex||0];
+  const bounds=new google.maps.LatLngBounds();bounds.extend({lat:loc.lat,lng:loc.lng});
+  const star=new google.maps.Marker({position:{lat:loc.lat,lng:loc.lng},map:S.gm.result,zIndex:10,label:{text:'★',color:'#f0c93a',fontSize:'20px',fontWeight:'bold'},icon:{path:google.maps.SymbolPath.CIRCLE,scale:16,fillColor:'transparent',strokeColor:'transparent'}});
+  star.addListener('click',()=>new google.maps.InfoWindow({content:`<b>Actual Location</b><br>${loc.label||''}<br>${loc.lat.toFixed(4)}°, ${loc.lng.toFixed(4)}°`}).open(S.gm.result,star));
+  S.gm.rM.push(star);
+  let ci=0;
+  Object.entries(room.guesses||{}).forEach(([id,g])=>{
+    const p=room.players[id];if(!p||!g||!g.lat)return;const col=PCOLS[ci++%PCOLS.length];
+    bounds.extend({lat:g.lat,lng:g.lng});
+    const m=new google.maps.Marker({position:{lat:g.lat,lng:g.lng},map:S.gm.result,icon:{path:google.maps.SymbolPath.CIRCLE,fillColor:col,fillOpacity:1,strokeColor:'#fff',strokeWeight:2,scale:8}});
+    m.addListener('click',()=>new google.maps.InfoWindow({content:`<b>${p.name}</b><br>${g.distance.toLocaleString()} km away`}).open(S.gm.result,m));
+    S.gm.rM.push(m);S.gm.rL.push(new google.maps.Polyline({path:[{lat:g.lat,lng:g.lng},{lat:loc.lat,lng:loc.lng}],strokeColor:col,strokeOpacity:.6,strokeWeight:2,map:S.gm.result}));
+  });
+  setTimeout(()=>{google.maps.event.trigger(S.gm.result,'resize');S.gm.result.fitBounds(bounds,{padding:60});},200);
+  document.getElementById('res-title').textContent=`Round ${room.currentRound} of ${room.totalRounds}`;
+  document.getElementById('res-loc').textContent=`📍 ${loc.label||'Unknown'} · ${loc.lat.toFixed(4)}°, ${loc.lng.toFixed(4)}°`;
+  document.getElementById('prog-lbl').textContent=`${room.currentRound} of ${room.totalRounds} rounds complete`;
+  const last=room.currentRound>=room.totalRounds;
+  document.getElementById('next-btn-wrap').innerHTML=(S.isHost||S.isSolo)?`<button class="btn ${last?'bgr':'bp'}" style="width:100%" onclick="nextRound(${room.currentRound},${room.totalRounds})">${last?'🏆 Final Results':'Next Round →'}</button>`:`<div style="color:var(--mu);font-size:.79rem;text-align:center">Waiting for host to continue…</div>`;
+  document.getElementById('tab-res').classList.add('active');document.getElementById('tab-lb').classList.remove('active');renderResContent(room);
+}
+function renderResContent(room){
+  const el=document.getElementById('rsb-content');
+  if(S.resTab==='results'){
+    const sc=Object.entries(room.guesses||{}).map(([id,g])=>({name:room.players[id]?.name||'?',score:g.score,mathBonus:g.mathBonus,distance:g.distance,me:id===S.pid,noGuess:g.noGuess||false})).sort((a,b)=>b.score-a.score);
+    const mx=sc[0]?.score||1;
+    el.innerHTML=`<div class="rr">${sc.map((s,i)=>`<div class="rri${s.me?' me':''}"><div style="flex:1;min-width:0"><div class="rri-name">${MEDAL[i]||'#'+(i+1)} ${s.name}${s.me?' (you)':''}</div><div class="rri-sub">📍 ${s.distance.toLocaleString()} km · maths +${s.mathBonus}</div><div class="pbar-w"><div class="pbar" style="width:${Math.round(s.score/mx*100)}%;background:${i===0?'var(--go)':'var(--bl)'}"></div></div></div><div class="rri-sc" style="margin-left:8px">+${s.score.toLocaleString()}</div></div>`).join('')}</div>`;
+  }else{
+    const pl=Object.entries(room.players).map(([id,p])=>({id,name:p.name,total:p.totalScore||0,me:id===S.pid})).sort((a,b)=>b.total-a.total);
+    const mx=pl[0]?.total||1;
+    el.innerHTML=`<div class="lb">${pl.map((p,i)=>{const prev=S.prevScores[p.id]||0,delta=p.total-prev;const dt=delta>0?'+'+delta:delta<0?String(delta):'—';const dc=delta>0?'up':delta<0?'dn':'eq';const gc=['g1','g2','g3'][i]||'';const bc=i===0?'var(--go)':i===1?'#8b949e':i===2?'#d87c3f':'var(--bl)';return`<div class="lbr ${gc}${p.me?' me':''}"><div class="lbpos">${MEDAL[i]||i+1}</div><div style="flex:1;min-width:0"><div class="lbname">${p.name}${p.me?' ✦':''}</div><div class="pbar-w"><div class="pbar" style="width:${Math.round(p.total/mx*100)}%;background:${bc}"></div></div></div><div style="text-align:right"><div class="lbsc">${p.total.toLocaleString()}</div><div class="dlt ${dc}">${dt}</div></div></div>`;}).join('')}</div>`;
+  }
+}
+async function nextRound(cur,tot){
+  const room=await rrd(S.roomCode);if(!room)return;
+  S.prevScores={};Object.entries(room.players).forEach(([id,p])=>{S.prevScores[id]=p.totalScore||0;});
+  if(cur>=tot){room.phase='finished';await rwr(S.roomCode,room);showFinal(room);}
+  else{room.currentRound=cur+1;room.locationIndex=room.currentRound-1;room.guesses={};room.phase='playing';await rwr(S.roomCode,room);if(S.isSolo){S.localPhase='';S.localRound=-1;startRound(room);}}
+}
+
+/* =============================================
+   FINAL
+============================================= */
+function showFinal(room){
+  show('sf');stopPoll();stopTimer();document.getElementById('again-btn').style.display=(S.isHost||S.isSolo)?'inline-flex':'none';
+  const pl=Object.entries(room.players).map(([id,p])=>({id,name:p.name,total:p.totalScore||0,rounds:p.roundScores||[],me:id===S.pid})).sort((a,b)=>b.total-a.total);
+  const mx=pl[0]?.total||1;const bc=i=>i===0?'var(--go)':i===1?'#8b949e':i===2?'#d87c3f':'var(--bl)';
+  document.getElementById('flb').innerHTML=`<div class="flb-hdr"><span>Player</span><span>Total Score</span></div>`+pl.map((p,i)=>`<div class="fri" style="${p.me?'background:rgba(88,166,255,.07)':''}"><div class="fripos">${MEDAL[i]||i+1}</div><div style="flex:1;min-width:0"><div class="friname">${p.name}${p.me?' (you)':''}</div><div class="frirds">${p.rounds.map(s=>s.toLocaleString()).join(' · ')}</div><div class="pbar-w" style="margin-top:4px"><div class="pbar" style="width:${Math.round(p.total/mx*100)}%;background:${bc(i)}"></div></div></div><div class="frisc">${p.total.toLocaleString()}</div></div>`).join('');
+}
+function newGame(){stopPoll();stopTimer();S.isSolo=false;S.localPhase='';S.localRound=-1;show('sw')}
+
+/* =============================================
+   POLL — sync room state every 2 seconds
+============================================= */
+function startPoll(){stopPoll();S.poll=setInterval(doPoll,2000)}
+function stopPoll(){if(S.poll){clearInterval(S.poll);S.poll=null}}
+async function doPoll(){
+  if(S.isSolo)return;
+  const room=await rrd(S.roomCode);if(!room)return;
+  if(room.phase==='lobby'){updateLobby(room);}
+  else if(room.phase==='playing'){
+    if(S.localPhase!=='playing'||room.currentRound!==S.localRound){
+      S.localPhase='playing';S.localRound=room.currentRound;
+      S.roundLocs=room.locationData||S.roundLocs;S.roundDuration=room.roundDuration||0;
+      S.lastRoom=room;
+      startRound(room);
+    }else if(S.submitted){
+      updateWaitingBadge(room);
+    }
+  }
+  else if(room.phase==='results'){if(S.localPhase!=='results'||S.localRound!==room.currentRound){S.localPhase='results';S.localRound=room.currentRound;showResults(room);}}
+  else if(room.phase==='finished'&&S.localPhase!=='finished'){S.localPhase='finished';showFinal(room);}
+}
+
+/* =============================================
+   INIT
+============================================= */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    if(document.activeElement?.id==='sq-input')quizAnswer();
+    else if(document.getElementById('math-dialog').classList.contains('active'))checkAnswer();
+    else if(['inp-name','inp-code'].includes(document.activeElement?.id))enterRoom();
+  }
+});
+document.getElementById('inp-code').addEventListener('input',function(){this.value=this.value.toUpperCase()});
+document.getElementById('rj-code').addEventListener('input',function(){this.value=this.value.toUpperCase()});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&['rj-code','rj-name','rj-password'].includes(document.activeElement?.id))rejoinRoom();
+});
+
+// Auto-fill rejoin from saved session
+const sess=loadSession();
+if(sess&&sess.roomCode&&sess.roomCode!=='SOLO'){
+  document.getElementById('rj-code').value=sess.roomCode;
+  document.getElementById('rj-name').value=sess.name||'';
+  document.getElementById('rj-password').value=sess.password||'';
+}
+
+show('sw');
+// Pre-load Maps in background so it's ready when players enter
+setTimeout(()=>loadMaps().catch(()=>{}),500);
+</script>
+</body>
+</html>
